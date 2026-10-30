@@ -1,1 +1,62 @@
+name: Deploy to GitHub Pages
 
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+# Nadanie uprawnień GITHUB_TOKEN do publikacji na GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Zapewnia jedno jednoczesne wdrożenie
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, verify and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz kod repozytorium (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Konfiguracja środowiska Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Instalacja zależności
+        run: npm ci
+
+      - name: Uruchomienie testów akustycznych i geometrycznych
+        run: npm test
+
+      - name: Sprawdzenie typów TypeScript
+        run: npm run typecheck
+
+      - name: Kompilacja aplikacji produkcyjnej (Vite Build)
+        run: npm run build
+
+      - name: Przygotowanie artefaktu GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    name: Publikacja na GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Wdrożenie na GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
